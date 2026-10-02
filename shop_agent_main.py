@@ -33,7 +33,8 @@ def webhook():
 
     try:
         if GEMINI_API_KEY:
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            # د ماډل سمه بڼه
+            model = genai.GenerativeModel('models/gemini-1.5-flash')
             prompt = f"{SYSTEM_PROMPT}\n\nUser: {incoming_msg}\nMirwais:"
             response = model.generate_content(prompt)
             reply.body(response.text)
