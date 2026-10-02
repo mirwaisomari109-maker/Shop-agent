@@ -4,165 +4,220 @@ import requests
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
 app = Flask(__name__)
-# =========================
-# Gemini API
-# =========================
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-# اصلي Model
-MODEL = "gemini-2.5-flash"
-# که اصلي Model مصروف وي، دا Model وکاروه
-FALLBACK_MODEL = "gemini-3.8
--flash"
+# =========================================================
+# OPENROUTER
+# =========================================================
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+# OpenRouter Free Router
+MODEL = "openrouter/free"
+API_URL = "https://openrouter.ai/api/v1/chat/completions"
+# =========================================================
+# MIRWAIS SHOP AI
+# =========================================================
 SYSTEM_PROMPT = """
-تاسو د Mirwais Shop AI یاست.
-لارښوونې:
-- د کاروونکي د ژبې مطابق ځواب ورکړه.
-- پښتو -> پښتو ځواب
-- دري -> دري ځواب
-- عربي -> عربي ځواب
-- English -> English reply
-- لنډ، واضح او دوستانه ځوابونه ورکړه.
-- د جامو، ټوکر، دوکان او پیرودونکو پوښتنو کې مرسته وکړه.
-- که معلومات نه لرې، په ادب سره ووایه.
-- غیر ضروري اوږد ځواب مه ورکوه.
-ته د Mirwais Shop استازی یې.
+You are Mirwais Shop AI WhatsApp Assistant.
+You represent Mirwais Shop.
+Business:
+- Women's clothing
+- Fabrics
+- Wholesale and retail
+- Customer support
+- Product information
+- Prices and availability
+LANGUAGE RULE:
+If customer writes Pashto:
+Reply in Pashto.
+If customer writes Dari/Persian:
+Reply in Dari/Persian.
+If customer writes Arabic:
+Reply in Arabic.
+If customer writes English:
+Reply in English.
+IMPORTANT:
+- Keep answers short and clear.
+- Be polite and friendly.
+- Do not give information that you do not know.
+- Never invent prices, stock, colors, sizes or products.
+- If you don't know something, politely say that the shop needs to confirm it.
+- Do not give long unnecessary explanations.
+- Talk naturally like a real shop employee.
+- For simple questions, give a quick answer.
+- Use emojis only when useful.
+- Never mention that you are using OpenRouter, Gemini, an API, Python or an AI model.
+Example:
+Customer: سلام
+Answer: وعلیکم سلام، ښه راغلاست 🌷 څنګه مرسته درسره وکړم؟
+Customer: قیمت چند است؟
+Answer: مهرباني وکړئ د هغه لباس عکس یا نوم راولېږئ، قیمت به درته معلوم کړم.
+Customer: هل لديكم ملابس نسائية؟
+Answer: نعم، لدينا ملابس نسائية. إذا أردت، أرسل لك الموديلات المتوفرة.
 """
-# =========================
-# Gemini Function
-# =========================
-def ask_gemini(customer_message):
-    if not GEMINI_API_KEY:
-        return "د Gemini API Key نه دی تنظیم شوی."
-    prompt = f"""
-{SYSTEM_PROMPT}
-Customer Message:
-{customer_message}
-Reply in the same language as the customer.
-"""
-    models = [
-        MODEL,
-        FALLBACK_MODEL
-    ]
-    for current_model in models:
-        url = (
-            f"https://generativelanguage.googleapis.com/"
-            f"v1beta/models/{current_model}:generateContent"
-            f"?key={GEMINI_API_KEY}"
-        )
-        payload = {
-            "contents": [
-                {
-                    "parts": [
-                        {
-                            "text": prompt
-                        }
-                    ]
-                }
-            ],
-            "generationConfig": {
-                "temperature": 0.7,
-                "maxOutputTokens": 500
+# =========================================================
+# ASK AI
+# =========================================================
+def ask_ai(customer_message):
+    if not OPENROUTER_API_KEY:
+        print("ERROR: OPENROUTER_API_KEY is missing")
+        return "د AI سیستم API Key تنظیم شوی نه دی."
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://mirwais-shop.onrender.com",
+        "X-Title": "Mirwais Shop WhatsApp AI"
+    }
+    payload = {
+        "model": MODEL,
+        "messages": [
+            {
+                "role": "system",
+                "content": SYSTEM_PROMPT
+            },
+            {
+                "role": "user",
+                "content": customer_message
             }
-        }
-        # 3 attempts
-        for attempt in range(3):
-            try:
-                response = requests.post(
-                    url,
-                    json=payload,
-                    timeout=30
-                )
-                # =========================
-                # Success
-                # =========================
-                if response.status_code == 200:
-                    data = response.json()
-                    candidates = data.get("candidates", [])
-                    if candidates:
-                        content = candidates[0].get("content", {})
-                        parts = content.get("parts", [])
-                        if parts:
-                            text = parts[0].get("text", "").strip()
-                            if text:
-                                return text
-                    return "بښنه غواړم، ځواب ترلاسه نه شو."
-                # =========================
-                # Gemini Server Busy - 503
-                # =========================
-                if response.status_code == 503:
-                    # لومړی 2 ثانیې، بیا 4، بیا 8
-                    wait_time = 2 ** (attempt + 1)
-                    time.sleep(wait_time)
-                    continue
-                # =========================
-                # Rate Limit - 429
-                # =========================
-                if response.status_code == 429:
-                    time.sleep(5)
-                    continue
-                # =========================
-                # Other errors
-                # =========================
+        ],
+        "temperature": 0.5,
+        "max_tokens": 300
+    }
+    # -----------------------------------------------------
+    # Retry 3 times
+    # -----------------------------------------------------
+    for attempt in range(3):
+        try:
+            response = requests.post(
+                API_URL,
+                headers=headers,
+                json=payload,
+                timeout=25
+            )
+            # ------------------------------------------------
+            # SUCCESS
+            # ------------------------------------------------
+            if response.status_code == 200:
+                data = response.json()
+                choices = data.get("choices", [])
+                if not choices:
+                    print("AI returned no choices")
+                    return None
+                message = choices[0].get("message", {})
+                answer = message.get("content", "")
+                if answer:
+                    return answer.strip()
+                return None
+            # ------------------------------------------------
+            # TOO MANY REQUESTS
+            # ------------------------------------------------
+            if response.status_code == 429:
+                print("OpenRouter 429 - rate limit")
+                time.sleep(2 + attempt * 2)
+                continue
+            # ------------------------------------------------
+            # SERVER BUSY
+            # ------------------------------------------------
+            if response.status_code in [500, 502, 503, 504]:
                 print(
-                    f"Gemini Error {response.status_code}: "
-                    f"{response.text}"
+                    f"OpenRouter server error: "
+                    f"{response.status_code}"
                 )
-                break
-            except requests.exceptions.Timeout:
-                time.sleep(2)
+                time.sleep(2 + attempt * 2)
                 continue
-            except requests.exceptions.RequestException as e:
-                print("Request Error:", e)
-                time.sleep(2)
-                continue
+            # ------------------------------------------------
+            # AUTH ERROR
+            # ------------------------------------------------
+            if response.status_code in [401, 403]:
+                print(
+                    "OpenRouter authentication error:",
+                    response.text
+                )
+                return "د AI API Key ستونزه لري."
+            # ------------------------------------------------
+            # OTHER ERROR
+            # ------------------------------------------------
+            print(
+                "OpenRouter Error:",
+                response.status_code,
+                response.text
+            )
+            return None
+        except requests.exceptions.Timeout:
+            print("OpenRouter timeout")
+            time.sleep(2)
+            continue
+        except requests.exceptions.RequestException as e:
+            print("Request error:", e)
+            time.sleep(2)
+            continue
+        except Exception as e:
+            print("Unexpected AI error:", e)
+            return None
     return None
-# =========================
-# Home
-# =========================
+# =========================================================
+# HOME PAGE
+# =========================================================
 @app.route("/", methods=["GET"])
 def home():
-    return "Mirwais WhatsApp Shop Agent Running"
-# =========================
-# WhatsApp Webhook
-# =========================
+    return "Mirwais WhatsApp Shop AI is Running"
+# =========================================================
+# TWILIO WHATSAPP WEBHOOK
+# =========================================================
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    incoming_msg = request.values.get("Body", "").strip()
+    incoming_msg = request.values.get(
+        "Body",
+        ""
+    ).strip()
+    # Twilio response
     resp = MessagingResponse()
     reply = resp.message()
-    # که پیغام خالي وي
+    # -------------------------------------------------------
+    # Empty message
+    # -------------------------------------------------------
     if not incoming_msg:
         reply.body(
             "مهرباني وکړئ خپل پیغام ولیکئ."
         )
         return str(resp)
+    print(
+        "Customer:",
+        incoming_msg
+    )
+    # -------------------------------------------------------
+    # Ask AI
+    # -------------------------------------------------------
     try:
-        # Gemini ته پیغام واستوه
-        answer = ask_gemini(incoming_msg)
-        # =========================
-        # Gemini جواب
-        # =========================
+        answer = ask_ai(
+            incoming_msg
+        )
         if answer:
-            # WhatsApp اوږد متن محدودوو
-            reply.body(answer[:1500])
+            # WhatsApp message length protection
+            reply.body(
+                answer[:1500]
+            )
         else:
             reply.body(
-                "اوس مهال زموږ AI سرور مصروف دی. "
+                "بښنه غواړو، سیستم اوس مهال مصروف دی. "
                 "لږ وروسته بیا هڅه وکړئ."
             )
     except Exception as e:
-        print("Webhook Error:", e)
+        print(
+            "Webhook Error:",
+            e
+        )
         reply.body(
-            "موقتي ستونزه رامنځته شوه، "
+            "موقتي ستونزه رامنځته شوه. "
             "لږ وروسته بیا هڅه وکړئ."
         )
     return str(resp)
-# =========================
-# Run Server
-# =========================
+# =========================================================
+# START SERVER
+# =========================================================
 if __name__ == "__main__":
     port = int(
-        os.environ.get("PORT", 10000)
+        os.environ.get(
+            "PORT",
+            10000
+        )
     )
     app.run(
         host="0.0.0.0",
