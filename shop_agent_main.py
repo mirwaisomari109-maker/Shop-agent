@@ -1,15 +1,11 @@
 import os
+import requests
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
-import google.generativeai as genai
 
 app = Flask(__name__)
 
-# Gemini API تنظیمول
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
 
 SYSTEM_PROMPT = """
 تاسو د میرویس (Mirwais) په نوم د آنلاین پلورنځي مرستیال یاست.
@@ -33,11 +29,23 @@ def webhook():
 
     try:
         if GEMINI_API_KEY:
-            # د ماډل سمه بڼه
-            model = genai.GenerativeModel('models/gemini-1.5-flash')
-            prompt = f"{SYSTEM_PROMPT}\n\nUser: {incoming_msg}\nMirwais:"
-            response = model.generate_content(prompt)
-            reply.body(response.text)
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+            headers = {'Content-Type': 'application/json'}
+            payload = {
+                "contents": [{
+                    "parts": [{"text": f"{SYSTEM_PROMPT}\n\nUser: {incoming_msg}\nMirwais:"}]
+                }]
+            }
+            
+            response = requests.post(url, json=payload, headers=headers)
+            res_data = response.json()
+            
+            if response.status_code == 200 and 'candidates' in res_data:
+                ai_text = res_data['candidates'][0]['content']['parts'][0]['text']
+                reply.body(ai_text)
+            else:
+                print("Gemini API Error:", res_data)
+                reply.body("مننه ستاسو له پیغام څخه! زما د ځواب ورکولو سیستم اوس مهال مصروف دی.")
         else:
             reply.body("په بخښنه سره، د هوښیار سیستم په تنظیم کې ستونزه شته.")
     except Exception as e:
