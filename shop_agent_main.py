@@ -11,7 +11,8 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 # اصلي Model
 MODEL = "gemini-2.5-flash"
 # که اصلي Model مصروف وي، دا Model وکاروه
-FALLBACK_MODEL = "gemini-2.0-flash"
+FALLBACK_MODEL = "gemini-3.8
+-flash"
 SYSTEM_PROMPT = """
 تاسو د Mirwais Shop AI یاست.
 لارښوونې:
