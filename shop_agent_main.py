@@ -29,13 +29,12 @@ def webhook():
 
     try:
         if GEMINI_API_KEY:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={GEMINI_API_KEY}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
             headers = {'Content-Type': 'application/json'}
             payload = {
                 "contents": [{
                     "parts": [{"text": f"{SYSTEM_PROMPT}\n\nUser: {incoming_msg}\nMirwais:"}]
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
-    }]
+                }]
             }
             
             response = requests.post(url, json=payload, headers=headers)
