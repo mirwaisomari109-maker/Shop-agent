@@ -56,3 +56,19 @@ def webhook():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+import time
+from google.api_core.exceptions import ServiceUnavailable
+
+def generate_content_with_retry(model, prompt):
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            # د ځواب ترلاسه کولو هڅه
+            response = model.generate_content(prompt)
+            return response
+        except ServiceUnavailable:
+            if attempt < max_retries - 1:
+                time.sleep(2)  # ۲ ثانیې انتظار وکړئ او بیا هڅه وکړئ
+                continue
+            else:
+                raise  # که ۳ ځلې ناکام شو، تېروتنه ورکړه
