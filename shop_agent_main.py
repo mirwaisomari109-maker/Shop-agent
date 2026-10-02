@@ -506,10 +506,29 @@ def process_message(message):
 # HOME
 # =========================================================
 
-@app.route("/", methods=["GET"])
-def home():
+@app.route("/webhook", methods=["POST"])
+def webhook():
 
-    return "Debt Agent is running."
+    message = request.values.get("Body", "").strip()
+    phone = request.values.get("From", "")
+
+    print("CUSTOMER:", phone)
+    print("MESSAGE:", message)
+
+    reply_text = process_message(message)
+
+    print("REPLY:", reply_text)
+
+    response = MessagingResponse()
+    response.message(reply_text)
+
+    xml = str(response)
+
+    print("TWILIO XML:", xml)
+
+    return xml, 200, {
+        "Content-Type": "text/xml; charset=utf-8"
+    }
 
 
 # =========================================================
